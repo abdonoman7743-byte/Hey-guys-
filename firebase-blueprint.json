@@ -1,0 +1,297 @@
+{
+  "entities": {
+    "PublicProfile": {
+      "title": "PublicProfile",
+      "description": "Publicly discoverable user profile without PII",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "username": { "type": "string", "minLength": 3, "maxLength": 24, "pattern": "^[a-z0-9_]{3,24}$" },
+        "usernameLower": { "type": "string", "minLength": 3, "maxLength": 24, "pattern": "^[a-z0-9_]{3,24}$" },
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "displayNameLower": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "avatarUrl": { "type": "string", "maxLength": 500 },
+        "bio": { "type": "string", "maxLength": 160 },
+        "status": { "type": "string", "enum": ["online", "busy", "offline"] },
+        "manualStatus": { "type": "string", "enum": ["available", "busy"] },
+        "lastSeen": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "uid",
+        "username",
+        "usernameLower",
+        "displayName",
+        "displayNameLower",
+        "status",
+        "manualStatus",
+        "lastSeen",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "UsernameRegistry": {
+      "title": "UsernameRegistry",
+      "description": "Unique username reservation mapping username to user UID",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "username": { "type": "string", "minLength": 3, "maxLength": 24, "pattern": "^[a-z0-9_]{3,24}$" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "username", "createdAt"]
+    },
+    "PrivateUser": {
+      "title": "PrivateUser",
+      "description": "Private user account data and preferences isolated to the owner",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "email": { "type": "string", "maxLength": 150 },
+        "username": { "type": "string", "minLength": 3, "maxLength": 24, "pattern": "^[a-z0-9_]{3,24}$" },
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "preferredLanguage": { "type": "string", "enum": ["en", "ar"] },
+        "theme": { "type": "string", "enum": ["light", "dark"] },
+        "notificationsEnabled": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "uid",
+        "email",
+        "username",
+        "displayName",
+        "preferredLanguage",
+        "theme",
+        "notificationsEnabled",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "DeviceToken": {
+      "title": "DeviceToken",
+      "description": "Push notification registration token (FCM / APNs / WebPush)",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "token": { "type": "string", "minLength": 10, "maxLength": 512 },
+        "platform": { "type": "string", "enum": ["web", "ios", "android"] },
+        "provider": { "type": "string", "enum": ["fcm", "apns", "webpush"] },
+        "userAgent": { "type": "string", "maxLength": 200 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "token", "platform", "provider", "userAgent", "updatedAt"]
+    },
+    "FriendRequest": {
+      "title": "FriendRequest",
+      "description": "Friend request between two users",
+      "type": "object",
+      "properties": {
+        "fromUid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "toUid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "participantUids": { "type": "array" },
+        "fromUsername": { "type": "string", "maxLength": 24 },
+        "fromDisplayName": { "type": "string", "maxLength": 60 },
+        "fromAvatarUrl": { "type": "string", "maxLength": 500 },
+        "toUsername": { "type": "string", "maxLength": 24 },
+        "toDisplayName": { "type": "string", "maxLength": 60 },
+        "toAvatarUrl": { "type": "string", "maxLength": 500 },
+        "status": { "type": "string", "enum": ["pending", "accepted", "rejected", "cancelled"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "fromUid",
+        "toUid",
+        "participantUids",
+        "fromUsername",
+        "fromDisplayName",
+        "toUsername",
+        "toDisplayName",
+        "status",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Friendship": {
+      "title": "Friendship",
+      "description": "Accepted mutual friendship record with deterministic pair ID",
+      "type": "object",
+      "properties": {
+        "pairId": { "type": "string", "maxLength": 260, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userA": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userB": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "participantUids": { "type": "array" },
+        "requestId": { "type": "string", "maxLength": 260, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["pairId", "userA", "userB", "participantUids", "requestId", "createdAt"]
+    },
+    "Conversation": {
+      "title": "Conversation",
+      "description": "One-to-one direct conversation metadata",
+      "type": "object",
+      "properties": {
+        "conversationId": { "type": "string", "maxLength": 260, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "participantUids": { "type": "array" },
+        "lastMessageText": { "type": "string", "maxLength": 2000 },
+        "lastMessageSenderUid": { "type": "string", "maxLength": 128 },
+        "lastMessageType": { "type": "string", "enum": ["text", "call", "image", "system"] },
+        "lastMessageAt": { "type": "string", "format": "date-time" },
+        "unreadA": { "type": "number" },
+        "unreadB": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "conversationId",
+        "participantUids",
+        "lastMessageText",
+        "lastMessageSenderUid",
+        "lastMessageType",
+        "lastMessageAt",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "Instant message inside a conversation",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "conversationId": { "type": "string", "maxLength": 260, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "senderUid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "participantUids": { "type": "array" },
+        "type": { "type": "string", "enum": ["text", "call_log", "image"] },
+        "text": { "type": "string", "maxLength": 4000 },
+        "mediaUrl": { "type": "string", "maxLength": 2000 },
+        "replyToId": { "type": "string", "maxLength": 128 },
+        "replyToPreview": { "type": "string", "maxLength": 200 },
+        "status": { "type": "string", "enum": ["sent", "delivered", "read"] },
+        "readAt": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "id",
+        "conversationId",
+        "senderUid",
+        "participantUids",
+        "type",
+        "text",
+        "status",
+        "createdAt"
+      ]
+    },
+    "CallRecord": {
+      "title": "CallRecord",
+      "description": "Voice or video call log including missed call tracking",
+      "type": "object",
+      "properties": {
+        "callId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "callerUid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "calleeUid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "participantUids": { "type": "array" },
+        "callerName": { "type": "string", "maxLength": 60 },
+        "callerUsername": { "type": "string", "maxLength": 24 },
+        "callerAvatarUrl": { "type": "string", "maxLength": 500 },
+        "calleeName": { "type": "string", "maxLength": 60 },
+        "calleeUsername": { "type": "string", "maxLength": 24 },
+        "calleeAvatarUrl": { "type": "string", "maxLength": 500 },
+        "type": { "type": "string", "enum": ["video", "voice"] },
+        "status": { "type": "string", "enum": ["ringing", "active", "ended", "missed", "rejected", "busy", "failed"] },
+        "durationSeconds": { "type": "number" },
+        "startedAt": { "type": "string", "format": "date-time" },
+        "endedAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "callId",
+        "callerUid",
+        "calleeUid",
+        "participantUids",
+        "callerName",
+        "callerUsername",
+        "calleeName",
+        "calleeUsername",
+        "type",
+        "status",
+        "durationSeconds",
+        "startedAt",
+        "updatedAt"
+      ]
+    },
+    "AppNotification": {
+      "title": "AppNotification",
+      "description": "Persistent in-app notification for calls and friend events",
+      "type": "object",
+      "properties": {
+        "recipientUid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "senderUid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "senderName": { "type": "string", "maxLength": 60 },
+        "senderUsername": { "type": "string", "maxLength": 24 },
+        "type": { "type": "string", "enum": ["missed_call", "friend_request", "friend_accepted", "new_message"] },
+        "title": { "type": "string", "maxLength": 120 },
+        "body": { "type": "string", "maxLength": 300 },
+        "read": { "type": "boolean" },
+        "refId": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "recipientUid",
+        "senderUid",
+        "senderName",
+        "senderUsername",
+        "type",
+        "title",
+        "body",
+        "read",
+        "refId",
+        "createdAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/publicProfiles/{uid}": {
+      "schema": { "$ref": "#/entities/PublicProfile" },
+      "description": "Publicly searchable user profiles and presence status"
+    },
+    "/usernames/{username}": {
+      "schema": { "$ref": "#/entities/UsernameRegistry" },
+      "description": "Unique username reservation registry"
+    },
+    "/users/{uid}": {
+      "schema": { "$ref": "#/entities/PrivateUser" },
+      "description": "Private user account data and settings"
+    },
+    "/users/{uid}/deviceTokens/{tokenId}": {
+      "schema": { "$ref": "#/entities/DeviceToken" },
+      "description": "Registered FCM/APNs/WebPush device tokens for a user"
+    },
+    "/friendRequests/{requestId}": {
+      "schema": { "$ref": "#/entities/FriendRequest" },
+      "description": "Friend requests between users"
+    },
+    "/friendships/{pairId}": {
+      "schema": { "$ref": "#/entities/Friendship" },
+      "description": "Accepted mutual friendships"
+    },
+    "/conversations/{conversationId}": {
+      "schema": { "$ref": "#/entities/Conversation" },
+      "description": "Direct 1-to-1 conversations"
+    },
+    "/conversations/{conversationId}/messages/{messageId}": {
+      "schema": { "$ref": "#/entities/Message" },
+      "description": "Persistent instant messages inside a conversation"
+    },
+    "/calls/{callId}": {
+      "schema": { "$ref": "#/entities/CallRecord" },
+      "description": "Real-time voice/video call history and missed call records"
+    },
+    "/notifications/{notificationId}": {
+      "schema": { "$ref": "#/entities/AppNotification" },
+      "description": "User notification inbox"
+    }
+  }
+}

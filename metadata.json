@@ -1,0 +1,6 @@
+{
+  "name": "Nidaa — Global Video, Voice & Messaging",
+  "description": "Real-time one-to-one video calls, voice calls, instant messaging, global user discovery, and live presence in English and Arabic.",
+  "requestFramePermissions": ["camera", "microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
