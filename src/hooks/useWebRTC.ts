@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '../lib/apiBase';
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import type { Socket } from 'socket.io-client';
 import type { CallType, IceServerConfig, PublicProfile } from '../types/domain';
@@ -105,7 +106,7 @@ export function useWebRTC({
     try {
       const token = await getIdToken();
       if (!token) return [{ urls: 'stun:stun.l.google.com:19302' }];
-      const res = await fetch('/api/rtc-config', {
+      const res = await fetch(`${API_BASE_URL}/api/rtc-config`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) return [{ urls: 'stun:stun.l.google.com:19302' }];

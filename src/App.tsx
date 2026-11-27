@@ -1,3 +1,4 @@
+import { API_BASE_URL } from './lib/apiBase';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   createUserWithEmailAndPassword,
@@ -193,7 +194,7 @@ function MainApp() {
       const token = await firebaseUser.getIdToken();
       if (cancelled) return;
 
-      instance = io({
+      instance = io(API_BASE_URL || undefined, {
         path: '/socket.io',
         auth: { token },
         transports: ['websocket', 'polling'],
