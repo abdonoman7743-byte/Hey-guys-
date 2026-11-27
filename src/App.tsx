@@ -1,5 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { onAuthStateChanged, signInWithPopup, signOut, type User } from 'firebase/auth';
+import {
+  createUserWithEmailAndPassword,
+  onAuthStateChanged,
+  sendPasswordResetEmail,
+  signInWithEmailAndPassword,
+  signInWithPopup,
+  signOut,
+  type User,
+} from 'firebase/auth';
+import { authErrorMessage, isSilentAuthError } from './utils/authUtils';
 import { io, type Socket } from 'socket.io-client';
 import {
   AlertTriangle,
@@ -334,10 +343,22 @@ function MainApp() {
     try {
       await signInWithPopup(auth, googleAuthProvider);
     } catch (err: any) {
-      setAuthError(err?.message || 'Sign-in was cancelled or failed.');
+      if (!isSilentAuthError(err)) setAuthError(authErrorMessage(err, lang));
     } finally {
       setAuthLoading(false);
     }
+  };
+
+  const handleEmailSignIn = async (email: string, password: string) => {
+    await signInWithEmailAndPassword(auth, email.trim(), password);
+  };
+
+  const handleEmailSignUp = async (email: string, password: string) => {
+    await createUserWithEmailAndPassword(auth, email.trim(), password);
+  };
+
+  const handlePasswordReset = async (email: string) => {
+    await sendPasswordResetEmail(auth, email.trim());
   };
 
   const handleSignOut = async () => {
@@ -462,6 +483,9 @@ function MainApp() {
         firebaseUser={firebaseUser}
         authLoading={authLoading}
         authError={authError}
+        onEmailSignIn={handleEmailSignIn}
+        onEmailSignUp={handleEmailSignUp}
+        onPasswordReset={handlePasswordReset}
         lang={lang}
         theme={theme}
         onToggleLanguage={() => setLang((l) => (l === 'en' ? 'ar' : 'en'))}
