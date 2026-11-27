@@ -1,0 +1,2 @@
+# Used at build time for the Firebase Hosting frontend
+VITE_API_URL=https://web-production-10ae83cc.up.railway.app
