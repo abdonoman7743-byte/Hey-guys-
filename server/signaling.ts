@@ -42,6 +42,13 @@ export function attachSignalingServer(io: Server, verifyToken: TokenVerifier) {
     io.emit('presence:changed', updated);
   };
 
+  // A call-scoped message is only relayed between the two parties of that exact call.
+  const inCallWith = (uid: string, toUid: unknown, callId: unknown): boolean => {
+    if (typeof toUid !== 'string' || typeof callId !== 'string') return false;
+    const entry = activeCalls.get(uid);
+    return !!entry && entry.callId === callId && entry.peerUid === toUid;
+  };
+
   io.use(async (socket, next) => {
     const token =
       (socket.handshake.auth?.token as string | undefined) ||
@@ -161,7 +168,19 @@ export function attachSignalingServer(io: Server, verifyToken: TokenVerifier) {
       }) => {
         const { callId, toUid, callType, callerName, callerUsername, callerAvatarUrl } =
           payload || {};
-        if (!callId || !toUid || toUid === uid) return;
+        if (
+          typeof callId !== 'string' ||
+          typeof toUid !== 'string' ||
+          !callId ||
+          callId.length > 128 ||
+          toUid === uid ||
+          (callType !== 'video' && callType !== 'voice')
+        )
+          return;
+        if (activeCalls.has(uid)) {
+          socket.emit('call:busy', { callId, toUid });
+          return;
+        }
 
         // Check if callee is already in an active/ringing call
         if (activeCalls.has(toUid)) {
@@ -184,9 +203,9 @@ export function attachSignalingServer(io: Server, verifyToken: TokenVerifier) {
           callId,
           fromUid: uid,
           callType,
-          callerName,
-          callerUsername,
-          callerAvatarUrl: callerAvatarUrl || '',
+          callerName: String(callerName || '').slice(0, 60),
+          callerUsername: String(callerUsername || '').slice(0, 40),
+          callerAvatarUrl: String(callerAvatarUrl || '').slice(0, 500),
         });
 
         socket.emit('call:ringing', { callId, toUid });
@@ -195,6 +214,7 @@ export function attachSignalingServer(io: Server, verifyToken: TokenVerifier) {
 
     socket.on('call:accept', (payload: { callId: string; toUid: string }) => {
       if (!payload?.callId || !payload?.toUid) return;
+      if (!inCallWith(uid, payload.toUid, payload.callId)) return;
       const entry = activeCalls.get(uid);
       if (entry && entry.callId === payload.callId) {
         activeCalls.set(uid, { ...entry, state: 'active' });
@@ -211,6 +231,7 @@ export function attachSignalingServer(io: Server, verifyToken: TokenVerifier) {
 
     socket.on('call:reject', (payload: { callId: string; toUid: string; reason?: string }) => {
       if (!payload?.callId || !payload?.toUid) return;
+      if (!inCallWith(uid, payload.toUid, payload.callId)) return;
       if (activeCalls.get(uid)?.callId === payload.callId) activeCalls.delete(uid);
       if (activeCalls.get(payload.toUid)?.callId === payload.callId) activeCalls.delete(payload.toUid);
       broadcastPresence(uid);
@@ -226,6 +247,7 @@ export function attachSignalingServer(io: Server, verifyToken: TokenVerifier) {
       'call:offer',
       (payload: { callId: string; toUid: string; sdp: RTCSessionDescriptionInit }) => {
         if (!payload?.callId || !payload?.toUid || !payload?.sdp) return;
+      if (!inCallWith(uid, payload.toUid, payload.callId)) return;
         io.to(`user:${payload.toUid}`).emit('call:offer', {
           callId: payload.callId,
           fromUid: uid,
@@ -238,6 +260,7 @@ export function attachSignalingServer(io: Server, verifyToken: TokenVerifier) {
       'call:answer',
       (payload: { callId: string; toUid: string; sdp: RTCSessionDescriptionInit }) => {
         if (!payload?.callId || !payload?.toUid || !payload?.sdp) return;
+      if (!inCallWith(uid, payload.toUid, payload.callId)) return;
         io.to(`user:${payload.toUid}`).emit('call:answer', {
           callId: payload.callId,
           fromUid: uid,
@@ -250,6 +273,7 @@ export function attachSignalingServer(io: Server, verifyToken: TokenVerifier) {
       'call:ice-candidate',
       (payload: { callId: string; toUid: string; candidate: RTCIceCandidateInit }) => {
         if (!payload?.callId || !payload?.toUid || !payload?.candidate) return;
+      if (!inCallWith(uid, payload.toUid, payload.callId)) return;
         io.to(`user:${payload.toUid}`).emit('call:ice-candidate', {
           callId: payload.callId,
           fromUid: uid,
@@ -262,6 +286,7 @@ export function attachSignalingServer(io: Server, verifyToken: TokenVerifier) {
       'call:media-state',
       (payload: { callId: string; toUid: string; isMuted?: boolean; isCameraOff?: boolean }) => {
         if (!payload?.callId || !payload?.toUid) return;
+      if (!inCallWith(uid, payload.toUid, payload.callId)) return;
         io.to(`user:${payload.toUid}`).emit('call:media-state', {
           callId: payload.callId,
           fromUid: uid,
@@ -273,6 +298,7 @@ export function attachSignalingServer(io: Server, verifyToken: TokenVerifier) {
 
     socket.on('call:hangup', (payload: { callId: string; toUid: string; reason?: string }) => {
       if (!payload?.callId || !payload?.toUid) return;
+      if (!inCallWith(uid, payload.toUid, payload.callId)) return;
       if (activeCalls.get(uid)?.callId === payload.callId) activeCalls.delete(uid);
       if (activeCalls.get(payload.toUid)?.callId === payload.callId) activeCalls.delete(payload.toUid);
       broadcastPresence(uid);
