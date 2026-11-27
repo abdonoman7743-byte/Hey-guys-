@@ -1,5 +1,7 @@
 import type { Server, Socket } from 'socket.io';
 
+import type { UserPushNotifier, UserPushRequest } from './pushService';
+
 export type TokenVerifier = (token: string) => Promise<{ uid: string; email?: string }>;
 
 export interface UserPresenceRecord {
@@ -15,7 +17,15 @@ interface ActiveCallEntry {
   state: 'ringing' | 'active';
 }
 
-export function attachSignalingServer(io: Server, verifyToken: TokenVerifier) {
+export function attachSignalingServer(
+  io: Server,
+  verifyToken: TokenVerifier,
+  pushNotify?: UserPushNotifier
+) {
+  const push = (req: UserPushRequest) => {
+    if (!pushNotify) return;
+    pushNotify(req).catch(() => {});
+  };
   const userSockets = new Map<string, Set<string>>();
   const presenceMap = new Map<string, UserPresenceRecord>();
   const activeCalls = new Map<string, ActiveCallEntry>();
@@ -138,6 +148,14 @@ export function attachSignalingServer(io: Server, verifyToken: TokenVerifier) {
       'message:notify',
       (payload: { toUid: string; conversationId: string; preview: string; senderName: string }) => {
         if (!payload?.toUid || !payload?.conversationId) return;
+        if (!userSockets.get(payload.toUid)?.size) {
+          push({
+            senderUid: uid,
+            recipientUid: payload.toUid,
+            kind: 'message',
+            preview: String(payload.preview || ''),
+          });
+        }
         io.to(`user:${payload.toUid}`).emit('message:notify', {
           fromUid: uid,
           conversationId: payload.conversationId,
@@ -149,6 +167,13 @@ export function attachSignalingServer(io: Server, verifyToken: TokenVerifier) {
 
     socket.on('friend:event', (payload: { toUid: string; kind: 'request' | 'accepted' }) => {
       if (!payload?.toUid) return;
+      if (!userSockets.get(payload.toUid)?.size) {
+        push({
+          senderUid: uid,
+          recipientUid: payload.toUid,
+          kind: payload.kind === 'accepted' ? 'friend_accepted' : 'friend_request',
+        });
+      }
       io.to(`user:${payload.toUid}`).emit('friend:event', {
         fromUid: uid,
         kind: payload.kind,
@@ -187,6 +212,9 @@ export function attachSignalingServer(io: Server, verifyToken: TokenVerifier) {
           socket.emit('call:busy', { callId, toUid });
           return;
         }
+
+        // Always push calls: a backgrounded mobile client may have a dead socket.
+        push({ senderUid: uid, recipientUid: toUid, kind: 'call', refId: callId, callType });
 
         const calleeSockets = userSockets.get(toUid);
         if (!calleeSockets || calleeSockets.size === 0) {
