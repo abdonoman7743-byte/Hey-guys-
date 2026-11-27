@@ -2,6 +2,8 @@ import { useEffect, useState, type FormEvent } from 'react';
 import type { User } from 'firebase/auth';
 import {
   CheckCircle2,
+  Eye,
+  EyeOff,
   Globe,
   Loader2,
   MessageSquare,
@@ -14,6 +16,7 @@ import {
 import { t } from '../i18n/translations';
 import type { SupportedLanguage, ThemeMode } from '../types/domain';
 import { checkUsernameAvailability, registerUserProfile } from '../services/firestoreService';
+import { authErrorMessage, validateEmail, validatePassword } from '../utils/authUtils';
 import { normalizeUsername, validateUsername } from '../utils/chatUtils';
 
 interface AuthViewProps {
@@ -25,6 +28,9 @@ interface AuthViewProps {
   onToggleLanguage: () => void;
   onToggleTheme: () => void;
   onGoogleSignIn: () => Promise<void>;
+  onEmailSignIn: (email: string, password: string) => Promise<void>;
+  onEmailSignUp: (email: string, password: string) => Promise<void>;
+  onPasswordReset: (email: string) => Promise<void>;
   onSignOut: () => Promise<void>;
   onProfileCreated: () => void;
 }
@@ -38,6 +44,9 @@ export function AuthView({
   onToggleLanguage,
   onToggleTheme,
   onGoogleSignIn,
+  onEmailSignIn,
+  onEmailSignUp,
+  onPasswordReset,
   onSignOut,
   onProfileCreated,
 }: AuthViewProps) {
@@ -51,6 +60,64 @@ export function AuthView({
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [heroImgFailed, setHeroImgFailed] = useState(false);
+
+  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [emailBusy, setEmailBusy] = useState(false);
+  const [resetBusy, setResetBusy] = useState(false);
+  const [touched, setTouched] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [formInfo, setFormInfo] = useState<string | null>(null);
+  const busy = authLoading || emailBusy || resetBusy;
+  const emailErr = touched ? validateEmail(email) : null;
+  const passErr = touched ? validatePassword(password, mode === 'signup') : null;
+
+  const handleEmailSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (busy) return;
+    setTouched(true);
+    setFormError(null);
+    setFormInfo(null);
+    if (validateEmail(email) || validatePassword(password, mode === 'signup')) return;
+    setEmailBusy(true);
+    try {
+      if (mode === 'signin') await onEmailSignIn(email, password);
+      else await onEmailSignUp(email, password);
+    } catch (err) {
+      setFormError(authErrorMessage(err, lang));
+    } finally {
+      setEmailBusy(false);
+    }
+  };
+
+  const handleForgot = async () => {
+    if (busy) return;
+    setFormError(null);
+    setFormInfo(null);
+    setTouched(true);
+    if (validateEmail(email)) return;
+    setResetBusy(true);
+    try {
+      await onPasswordReset(email);
+      setFormInfo(t(lang, 'resetSent'));
+    } catch (err) {
+      setFormError(authErrorMessage(err, lang));
+    } finally {
+      setResetBusy(false);
+    }
+  };
+
+  const switchMode = () => {
+    setMode((m) => (m === 'signin' ? 'signup' : 'signin'));
+    setFormError(null);
+    setFormInfo(null);
+    setTouched(false);
+  };
+
+  const inputCls =
+    'w-full px-3.5 py-2.5 rounded-xl border bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-teal-600 disabled:opacity-60';
 
   useEffect(() => {
     if (firebaseUser?.displayName && !displayName) {
@@ -183,32 +250,133 @@ export function AuthView({
                 </p>
               </div>
 
-              <div>
+              <div className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 sm:p-6 shadow-sm space-y-5">
                 <button
                   type="button"
-                  onClick={onGoogleSignIn}
-                  disabled={authLoading}
-                  className="min-h-[48px] px-6 py-3 rounded-xl bg-teal-700 hover:bg-teal-800 disabled:opacity-60 text-white font-semibold text-sm inline-flex items-center gap-3 transition-colors shadow-sm cursor-pointer"
+                  onClick={() => void onGoogleSignIn()}
+                  disabled={busy}
+                  className="w-full min-h-[48px] px-6 py-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-60 text-slate-900 dark:text-slate-100 font-semibold text-sm inline-flex items-center justify-center gap-3 transition-colors cursor-pointer"
                 >
                   {authLoading ? (
                     <Loader2 className="w-5 h-5 animate-spin" />
                   ) : (
                     <svg className="w-5 h-5" viewBox="0 0 24 24" aria-hidden="true">
-                      <path
-                        fill="currentColor"
-                        d="M21.35 11.1h-9.17v2.73h6.51c-.33 3.81-3.5 5.44-6.5 5.44C8.36 19.27 5 16.25 5 12c0-4.1 3.2-7.27 7.2-7.27c3.09 0 4.9 1.97 4.9 1.97L19 4.72S16.56 2 12.1 2C6.42 2 2.03 6.8 2.03 12c0 5.05 4.13 10 10.22 10c5.35 0 9.25-3.67 9.25-9.09c0-1.15-.15-1.81-.15-1.81Z"
-                      />
+                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1Z" />
+                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23Z" />
+                      <path fill="#FBBC05" d="M5.84 14.1a6.6 6.6 0 0 1 0-4.2V7.06H2.18a11 11 0 0 0 0 9.88l3.66-2.84Z" />
+                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1A11 11 0 0 0 2.18 7.06l3.66 2.84C6.71 7.31 9.14 5.38 12 5.38Z" />
                     </svg>
                   )}
-                  <span>
-                    {authLoading ? t(lang, 'signingIn') : t(lang, 'continueWithGoogle')}
-                  </span>
+                  <span>{authLoading ? t(lang, 'signingIn') : t(lang, 'continueWithGoogle')}</span>
                 </button>
                 {authError && (
-                  <p className="mt-3 text-sm text-rose-600 dark:text-rose-400" role="alert">
+                  <p className="text-sm text-rose-600 dark:text-rose-400" role="alert">
                     {authError}
                   </p>
                 )}
+
+                <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
+                  <span className="flex-1 h-px bg-slate-200 dark:bg-slate-800" />
+                  <span>{t(lang, 'orDivider')}</span>
+                  <span className="flex-1 h-px bg-slate-200 dark:bg-slate-800" />
+                </div>
+
+                <form onSubmit={handleEmailSubmit} noValidate className="space-y-4">
+                  <h2 className="text-base font-semibold">
+                    {mode === 'signin' ? t(lang, 'emailSignInHeading') : t(lang, 'createAccountTitle')}
+                  </h2>
+                  <div>
+                    <label htmlFor="auth-email" className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1.5">
+                      {t(lang, 'emailLabel')}
+                    </label>
+                    <input
+                      id="auth-email"
+                      type="email"
+                      dir="ltr"
+                      autoComplete="email"
+                      value={email}
+                      disabled={busy}
+                      onChange={(e) => setEmail(e.target.value)}
+                      aria-invalid={!!emailErr}
+                      className={`${inputCls} ${emailErr ? 'border-rose-500' : 'border-slate-300 dark:border-slate-700'}`}
+                    />
+                    {emailErr && <p className="mt-1 text-xs text-rose-600 dark:text-rose-400">{t(lang, emailErr)}</p>}
+                  </div>
+                  <div>
+                    <label htmlFor="auth-password" className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1.5">
+                      {t(lang, 'passwordLabel')}
+                    </label>
+                    <div className="relative">
+                      <input
+                        id="auth-password"
+                        type={showPassword ? 'text' : 'password'}
+                        dir="ltr"
+                        autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
+                        value={password}
+                        disabled={busy}
+                        onChange={(e) => setPassword(e.target.value)}
+                        aria-invalid={!!passErr}
+                        className={`${inputCls} pr-11 ${passErr ? 'border-rose-500' : 'border-slate-300 dark:border-slate-700'}`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword((v) => !v)}
+                        aria-label={showPassword ? t(lang, 'hidePassword') : t(lang, 'showPassword')}
+                        className="absolute inset-y-0 right-0 px-3 text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer"
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                    {passErr && <p className="mt-1 text-xs text-rose-600 dark:text-rose-400">{t(lang, passErr)}</p>}
+                  </div>
+
+                  {mode === 'signin' && (
+                    <div className="flex justify-end -mt-1">
+                      <button
+                        type="button"
+                        onClick={() => void handleForgot()}
+                        disabled={busy}
+                        className="text-xs font-medium text-teal-700 dark:text-teal-400 hover:underline disabled:opacity-60 cursor-pointer"
+                      >
+                        {resetBusy ? t(lang, 'sendingReset') : t(lang, 'forgotPassword')}
+                      </button>
+                    </div>
+                  )}
+
+                  {formError && (
+                    <p className="text-sm text-rose-600 dark:text-rose-400" role="alert">{formError}</p>
+                  )}
+                  {formInfo && (
+                    <p className="text-sm text-emerald-600 dark:text-emerald-400" role="status">{formInfo}</p>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={busy}
+                    className="w-full min-h-[48px] px-6 py-3 rounded-xl bg-teal-700 hover:bg-teal-800 disabled:opacity-60 text-white font-semibold text-sm inline-flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                  >
+                    {emailBusy && <Loader2 className="w-4 h-4 animate-spin" />}
+                    <span>
+                      {emailBusy
+                        ? t(lang, 'signingIn')
+                        : mode === 'signin'
+                          ? t(lang, 'signInBtn')
+                          : t(lang, 'createNewAccount')}
+                    </span>
+                  </button>
+                </form>
+
+                <p className="text-sm text-center text-slate-600 dark:text-slate-400">
+                  {mode === 'signin' ? t(lang, 'noAccountPrompt') : t(lang, 'haveAccountPrompt')}{' '}
+                  <button
+                    type="button"
+                    onClick={switchMode}
+                    disabled={busy}
+                    className="font-semibold text-teal-700 dark:text-teal-400 hover:underline disabled:opacity-60 cursor-pointer"
+                  >
+                    {mode === 'signin' ? t(lang, 'createNewAccount') : t(lang, 'backToSignIn')}
+                  </button>
+                </p>
               </div>
 
               <div className="pt-4 border-t border-slate-200 dark:border-slate-800 grid grid-cols-1 sm:grid-cols-3 gap-6">
