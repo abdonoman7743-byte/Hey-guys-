@@ -6,7 +6,7 @@ import { Server as SocketIOServer } from 'socket.io';
 import { adminAuth } from './server/firebaseAdmin';
 import { buildRtcConfig } from './server/rtcConfig';
 import { attachSignalingServer } from './server/signaling';
-import { dispatchPushNotifications, type PushDispatchTarget } from './server/pushService';
+import { notifyUserByPush, type UserPushNotifier } from './server/pushService';
 
 export interface AuthedRequest extends Request {
   uid?: string;
@@ -15,6 +15,7 @@ export interface AuthedRequest extends Request {
 
 export function createAppServer(options?: {
   verifyToken?: (token: string) => Promise<{ uid: string; email?: string }>;
+  pushNotifier?: UserPushNotifier;
 }) {
   const app = express();
   const httpServer = http.createServer(app);
@@ -80,40 +81,6 @@ export function createAppServer(options?: {
     res.json(buildRtcConfig());
   });
 
-  app.post('/api/push/notify', requireAuth, async (req: AuthedRequest, res) => {
-    const { targets, title, body, data } = req.body || {};
-    if (!Array.isArray(targets) || typeof title !== 'string' || typeof body !== 'string') {
-      return res.status(400).json({ error: 'Invalid push payload' });
-    }
-    const safeTargets: PushDispatchTarget[] = targets
-      .slice(0, 10)
-      .filter(
-        (t: any) =>
-          t &&
-          typeof t.token === 'string' &&
-          t.token.length >= 10 &&
-          ['fcm', 'apns', 'webpush'].includes(t.provider) &&
-          ['web', 'ios', 'android'].includes(t.platform)
-      );
-
-    const safeData: Record<string, string> = {};
-    if (data && typeof data === 'object') {
-      for (const [k, v] of Object.entries(data)) {
-        if (typeof k === 'string' && typeof v === 'string') {
-          safeData[k.slice(0, 64)] = v.slice(0, 256);
-        }
-      }
-    }
-
-    const result = await dispatchPushNotifications({
-      targets: safeTargets,
-      title: title.slice(0, 120),
-      body: body.slice(0, 300),
-      data: safeData,
-    });
-    res.json(result);
-  });
-
   const io = new SocketIOServer(httpServer, {
     path: '/socket.io',
     cors: {
@@ -124,7 +91,7 @@ export function createAppServer(options?: {
     pingTimeout: 20000,
   });
 
-  attachSignalingServer(io, verifyFn);
+  attachSignalingServer(io, verifyFn, options?.pushNotifier || notifyUserByPush);
 
   return { app, httpServer, io };
 }

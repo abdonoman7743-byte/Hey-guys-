@@ -125,3 +125,36 @@ test('API endpoints enforce authentication and Socket.IO relays WebRTC signaling
     await new Promise<void>((resolve) => httpServer.close(() => resolve()));
   }
 });
+
+test('server triggers push for offline message, friend request and incoming call', async () => {
+  const mockVerifier = async (token: string) => {
+    if (token === 'token-alice') return { uid: 'alice_uid' };
+    throw new Error('Invalid token');
+  };
+  const calls: any[] = [];
+  const { httpServer } = createAppServer({
+    verifyToken: mockVerifier,
+    pushNotifier: async (r) => {
+      calls.push(r);
+      return null;
+    },
+  });
+  await new Promise<void>((resolve) => httpServer.listen(0, '127.0.0.1', resolve));
+  const address = httpServer.address() as { port: number };
+  const alice = ioClient(`http://127.0.0.1:${address.port}`, {
+    auth: { token: 'token-alice' },
+    transports: ['websocket'],
+  });
+  try {
+    await new Promise<void>((resolve) => alice.on('connect', () => resolve()));
+    alice.emit('message:notify', { toUid: 'bob_uid', conversationId: 'c1', preview: 'hi', senderName: 'A' });
+    alice.emit('friend:event', { toUid: 'bob_uid', kind: 'request' });
+    alice.emit('call:initiate', { callId: 'call1', toUid: 'bob_uid', callType: 'voice', callerName: 'A', callerUsername: 'alice' });
+    await new Promise((r) => setTimeout(r, 300));
+    assert.deepEqual(calls.map((c) => c.kind), ['message', 'friend_request', 'call']);
+    assert.ok(calls.every((c) => c.senderUid === 'alice_uid' && c.recipientUid === 'bob_uid'));
+  } finally {
+    alice.close();
+    httpServer.close();
+  }
+});
